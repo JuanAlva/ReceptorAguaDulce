@@ -82,7 +82,7 @@ void setup() {
   // Configuración MQTT
   mqttClient.setServer(server, 1883);
   mqttClient.setSocketTimeout(5); // Establecer un tiempo de espera de 5 segundos
-  
+
   reconnectMQTT();
 }
 
@@ -147,19 +147,23 @@ void receiveLoRaData() {
     } else {
       Serial.print("Error al deserializar JSON: ");
       Serial.println(error.c_str());
+      return; // Salir si el mensaje es corrupto
     }
   }
 }
 
 void sendData() {
-  char buffer[10];
-  // Publicar metros cúbicos
-  snprintf(buffer, sizeof(buffer), "%.3f", receivedM3D);
-  if (mqttClient.publish("TanqueAguaDulce/M3D", buffer)) {
+  static float lastPublishedM3D = -1;
+  if (abs(receivedM3D - lastPublishedM3D) >= 0.01) { // Publicar solo si hay cambios significativos
+    char buffer[10];
+    snprintf(buffer, sizeof(buffer), "%.3f", receivedM3D);
+    if (mqttClient.publish("TanqueAguaDulce/M3D", buffer)) {
       Serial.printf("Metros cúbicos publicados: %s m3\n", buffer);
-  } else {
+      lastPublishedM3D = receivedM3D;
+    } else {
       Serial.println("Error al publicar metros cúbicos.");
       mqttErrorCount++;
+    }
   }
 }
 
@@ -209,5 +213,9 @@ void checkSystemHealth() {
   if (loraErrorCount >= MAX_ERROR_COUNT || mqttErrorCount >= MAX_ERROR_COUNT) {
     Serial.println("Umbral de errores alcanzado. Reiniciando el ESP32...");
     ESP.restart(); // Reiniciar el ESP32
+  }
+  if (Ethernet.linkStatus() == LinkOFF) {
+    Serial.println("Ethernet desconectado. Reiniciando...");
+    Ethernet.begin(mac, ip, myDns);
   }
 }
