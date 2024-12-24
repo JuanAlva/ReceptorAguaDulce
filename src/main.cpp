@@ -27,8 +27,6 @@ const int resetPin = 14;
 const int irqPin = 4;          
 
 // Variables para monitoreo y errores
-float receivedPressure = 0.0;
-float receivedMCA = 0.0;  // Metros columna de agua
 float receivedM3D = 0.0;   // Metros cúbicos
 unsigned long lastLoRaReceivedTime = 0; // Último tiempo en el que se recibieron datos
 #define LORA_TIMEOUT 15000 // Tiempo máximo sin datos (en ms)
@@ -136,24 +134,10 @@ void receiveLoRaData() {
     Serial.println(receivedData);
 
     // Procesar JSON
-    StaticJsonDocument<128> doc;
+    StaticJsonDocument<32> doc;
     DeserializationError error = deserializeJson(doc, receivedData);
 
     if (!error) {
-      if (doc.containsKey("pressure")) {
-          receivedPressure = doc["pressure"].as<float>();
-          Serial.printf("Presión recibida: %.2f psi\n", receivedPressure);
-      } else {
-          Serial.println("El campo 'pressure' no existe en el JSON recibido.");
-      }
-
-      if (doc.containsKey("mca")) {
-          receivedMCA = doc["mca"].as<float>();
-          Serial.printf("Metros columna de agua recibidos: %.2f m\n", receivedMCA);
-      } else {
-          Serial.println("El campo 'mca' no existe en el JSON recibido.");
-      }
-
       if (doc.containsKey("m3d")) {
           receivedM3D = doc["m3d"].as<float>();
           Serial.printf("Metros cúbicos recibidos: %.2f m3\n", receivedM3D);
@@ -169,24 +153,6 @@ void receiveLoRaData() {
 
 void sendData() {
   char buffer[10];
-  snprintf(buffer, sizeof(buffer), "%.3f", receivedPressure);
-
-  if (mqttClient.publish("TanqueAguaDulce/Presion", buffer)) {
-    Serial.printf("Presión publicada: %s psi\n", buffer);
-  } else {
-    Serial.println("Error al publicar datos.");
-    mqttErrorCount++; // Incrementar contador si falla la publicación
-  }
-
-  // Publicar metros columna de agua
-  snprintf(buffer, sizeof(buffer), "%.3f", receivedMCA);
-  if (mqttClient.publish("TanqueAguaDulce/MCA", buffer)) {
-      Serial.printf("MCA publicada: %s m\n", buffer);
-  } else {
-      Serial.println("Error al publicar MCA.");
-      mqttErrorCount++;
-  }
-
   // Publicar metros cúbicos
   snprintf(buffer, sizeof(buffer), "%.3f", receivedM3D);
   if (mqttClient.publish("TanqueAguaDulce/M3D", buffer)) {
